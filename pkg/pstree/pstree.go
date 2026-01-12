@@ -169,12 +169,21 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 		uids               []uint32
 		username           string
 	)
-	// []string{"age", "cpu", "mem", "pid", "threads", "user"}
 
 	/*
 	 * PID and Command are required fields
 	 */
 	pid = proc.Pid
+
+	// We need to get the arguments so identical processes are grouped, even if arguments are not displayed
+	argsChannel := make(chan func(proc *process.Process) (args []string, err error))
+	go ProcessArgs(argsChannel)
+	argsOut, err := (<-argsChannel)(proc)
+	if err != nil {
+		args = []string{}
+	} else {
+		args = argsOut
+	}
 
 	commandNameChannel := make(chan func(proc *process.Process) (string, error))
 	go ProcessCommandName(commandNameChannel)
@@ -197,17 +206,6 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 	/*
 	 * Only gather these if they're requested
 	 */
-	if miniOptions.ShowArguments {
-		argsChannel := make(chan func(proc *process.Process) (args []string, err error))
-		go ProcessArgs(argsChannel)
-		argsOut, err := (<-argsChannel)(proc)
-		if err != nil {
-			args = []string{}
-		} else {
-			args = argsOut
-		}
-	}
-
 	// This is very expensive so we'll ignore it for now
 	// backgroundChannel := make(chan func(proc *process.Process) (background bool, err error))
 	// go ProcessBackground(backgroundChannel)
