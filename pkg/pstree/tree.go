@@ -589,13 +589,6 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	builder.WriteString(linePrefix)
 	builder.WriteString(" ")
 
-	if processTree.DisplayOptions.ShowOwner {
-		owner = processTree.Nodes[pidIndex].Username
-		processTree.colorizeField("owner", &owner, pidIndex)
-		builder.WriteString(owner)
-		builder.WriteString(" ")
-	}
-
 	if processTree.DisplayOptions.ShowPIDs {
 		pidString = util.Int32toStr(processTree.Nodes[pidIndex].PID)
 		pidPgidSlice = append(pidPgidSlice, pidString)
@@ -615,6 +608,13 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 		pidPgidString = fmt.Sprintf("(%s)", strings.Join(pidPgidSlice, ","))
 		processTree.colorizeField("pidPgid", &pidPgidString, pidIndex)
 		builder.WriteString(pidPgidString)
+		builder.WriteString(" ")
+	}
+
+	if processTree.DisplayOptions.ShowOwner {
+		owner = processTree.Nodes[pidIndex].Username
+		processTree.colorizeField("owner", &owner, pidIndex)
+		builder.WriteString(owner)
 		builder.WriteString(" ")
 	}
 
