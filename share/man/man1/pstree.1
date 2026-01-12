@@ -1,0 +1,187 @@
+.\" -*- coding: utf-8 -*-
+.ad b
+.TH PSTREE 1 "January 10, 2026" "0.9.2" "User Commands"
+.SH NAME
+pstree \- display a tree of processes
+.SH SYNOPSIS
+.B pstree
+[\fB-A\fR | \fB--all\fR]
+[\fB-a\fR | \fB--arguments\fR]
+[\fB-c\fR | \fB--cpu\fR]
+[\fB-C\fR | \fB--color\fR]
+[\fB-d\fR | \fB--debug\fR]
+[\fB-g\fR | \fB--show-pgids\fR]
+[\fB-G\fR | \fB--age\fR]
+[\fB-h\fR | \fB--help\fR]
+[\fB-i\fR | \fB--ibm-850\fR]
+[\fB-I\fR | \fB--uid-transitions\fR]
+[\fB-k\fR | \fB--color-attr\fR \fIattr\fR]
+[\fB-l\fR | \fB--level\fR \fIlevel\fR]
+[\fB-m\fR | \fB--memory\fR]
+[\fB-n\fR | \fB--compact-not\fR]
+[\fB-o\fR | \fB--order-by\fR \fIfield\fR]
+[\fB-O\fR | \fB--show-owner\fR]
+[\fB-p\fR | \fB--show-pids\fR]
+[\fB-P\fR | \fB--pid\fR \fIPID\fR]
+[\fB-q\fR | \fB--color-scheme\fR \fIscheme\fR]
+[\fB-r\fR | \fB--rainbow\fR]
+[\fB-s\fR | \fB--contains\fR \fIpattern\fR]
+[\fB-S\fR | \fB--show-pgls\fR]
+[\fB-D\fR | \fB--show-ppids\fR]
+[\fB-t\fR | \fB--threads\fR]
+[\fB-u\fR | \fB--utf-8\fR]
+[\fB-U\fR | \fB--user-transitions\fR]
+[\fB--user\fR \fIusername\fR]
+[\fB-v\fR | \fB--vt-100\fR]
+[\fB-V\fR | \fB--version\fR]
+[\fB-w\fR | \fB--wide\fR]
+[\fB-X\fR | \fB--exclude-root\fR]
+.SH DESCRIPTION
+.B pstree
+shows running processes as a tree. The tree is rooted at launchd. If \fB--pid\fR is specified, the tree will be rooted at the specified PID. If \fB--user\fR is specified, all process trees rooted at processes owned by that user are shown. By default, processes are grouped and collapsed by command name and arguments. This can be disabled with the \fB--compact-not\fR option.
+.SH OPTIONS
+.TP
+.B \-G, \--age
+Show the age of each process in the list using the format (dd:hh:mm:ss).
+.TP
+.B \-A, \--all
+Equivalent to -acDGmOpSt.
+.TP
+.B \-a, \--arguments
+Show command line arguments after the process name.
+.TP
+.B \-C, \--color
+Colorize the pstree output. This option is only visible in the help if your terminal supports color. This option is not available if your terminal doesn't support at least 8 color output. This option cannot be used with \fB--color-attr\fR or \fB--rainbow\fR.
+.TP
+.B \-k, \--color-attr \fIattr\fR
+Color the process entry by the given attribute. Valid options are: age, cpu, mem. This option is not available if your terminal doesn't support at least 8 color output. This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees. This option cannot be used with \fB--color\fR, \fB--color-scheme\fR, or \fB--rainbow\fR.
+.RS
+.TP
+.B age
+Colors processes by their age: red (<1 minute), yellow (1 minute to 1 hour), cyan (1 hour to 1 day), green (>1 day).
+.TP
+.B cpu
+Colors processes by CPU usage: green (<5%), yellow (5-15%), red (>15%).
+.TP
+.B mem
+Colors processes by memory usage as percentage of total system memory: green (<10%), yellow (10-20%), red (>20%).
+.RE
+.TP
+.B \-q, \--color-scheme \fIscheme\fR
+Override the default color scheme. Valid options are: darwin, linux, powershell, windows10, xterm. This option cannot be used with \fB--color-attr\fR or \fB--rainbow\fR.
+.TP
+.B \-n, \--compact-not
+Do not compact identical subtrees in output. By default, identical process subtrees are shown only once with a count indicating how many instances exist (e.g., "process---N*[process]"). This option disables compaction, showing each process individually.
+.TP
+.B \-s, \--contains \fIpattern\fR
+Show only branches containing processes with \fIpattern\fR in the command line. This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
+.TP
+.B \-c, \--cpu
+Show the CPU utilization for each process in the list using the format (c:0.00%). This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
+.TP
+.B \-d, \--debug
+Show debugging data. Specify multiple times (-d, -dd, -ddd) to increase debugging level.
+.TP
+.B \-X, \--exclude-root
+Don't show branches containing only root processes. This option cannot be used with \fB--user\fR.
+.TP
+.B \-h, \--help
+Display a help message and exit.
+.TP
+.B \-i, \--ibm-850
+Use IBM-850 line drawing characters; only supported on DOS/Windows.
+.TP
+.B \-l, \--level \fIlevel\fR
+Print tree to \fIlevel\fR level deep.
+.TP
+.B \-m, \--memory
+Show the memory usage for each process in the list using the format (m:0.00 MiB). This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
+.TP
+.B \-o, \--order-by \fIfield\fR
+Sort processes by a given field. Available options are: age, cpu, mem, pid, threads, user.
+.TP
+.B \-P, \--pid \fIPID\fR
+Show only branches containing process \fIPID\fR.
+.TP
+.B \-r, \--rainbow
+Display the output in a really annoying rainbow pattern. This option is not available if your terminal doesn't support 256 color output. This option cannot be used with \fB--color\fR, \fB--color-attr\fR, or \fB--color-scheme\fR.
+.TP
+.B \-g, \--show-pgids
+Show PGIDs. Process Group IDs are shown as decimal numbers in parentheses after each process name.
+.TP
+.B \-S, \--show-pgls
+Show process group leader indicators. By default, process group leaders are not marked with special characters in the output.
+.TP
+.B \-p, \--show-pids
+Show PIDs. Process IDs are shown as decimal numbers in parentheses after each process name.
+.TP
+.B \--show-ppids
+Show parent process IDs. Parent Process IDs are shown as decimal numbers in parentheses after each process name.
+.TP
+.B \-O, \--show-owner
+Show the owner of the process.
+.TP
+.B \-t, \--threads
+Show the number of threads for each process in the list using the format (t:xx).
+.TP
+.B \-I, \--uid-transitions
+Show processes where the user ID changes from the parent process, e.g., (uid\[u2192]uid). This makes it easy to identify privilege escalations or drops in the process tree. This option cannot be used with \fB--user-transitions\fR.
+.TP
+.B \--user \fIuser\fR
+Show only branches containing processes of \fIuser\fR. This option can be used more than once. This option cannot be used with \fB--exclude-root\fR.
+.TP
+.B \-U, \--user-transitions
+Show processes where the username changes from the parent process, e.g., (user\[u2192]user). This makes it easy to identify privilege escalations or drops in the process tree. This option cannot be used with \fB--uid-transitions\fR.
+.TP
+.B \-u, \--utf-8
+Use UTF-8 (Unicode) line drawing characters.
+.TP
+.B \-V, \--version
+Display version information and exit.
+.TP
+.B \-v, \--vt-100
+Use VT-100 line drawing characters.
+.TP
+.B \-w, \--wide
+Do not truncate output to the width of the screen.
+.SH EXAMPLES
+.PP
+Display a basic process tree:
+.PP
+.nf
+    pstree
+.fi
+.PP
+Show a process tree with PIDs, CPU usage, memory usage, and process owners:
+.PP
+.nf
+    pstree -p -c -m -O
+.fi
+.PP
+Show a process tree for a specific user with process age and thread counts:
+.PP
+.nf
+    pstree --user username -G -t
+.fi
+.PP
+Show a process tree rooted at a specific process with all details:
+.PP
+.nf
+    pstree -P 1234 -A
+.fi
+.PP
+Show a process tree with UTF-8 graphics and process group leader indicators:
+.PP
+.nf
+    pstree -u -S
+.fi
+.PP
+Show only processes containing a specific pattern in the command line:
+.PP
+.nf
+    pstree -s "firefox"
+.fi
+.SH AUTHOR
+Cursed Bananazon <cursed.bananazon@gmail.com>
+.SH SEE ALSO
+ps(1), top(1)
