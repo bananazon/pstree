@@ -48,7 +48,7 @@ func TestNewProcessTree(t *testing.T) {
 // TestBuildTreeSimple tests the basic functionality of the BuildTree method with a minimal test case
 func TestBuildTreeSimple(t *testing.T) {
 	// Create minimal test processes
-	processes := []Process{
+	processes := []*Process{
 		{PID: 1, PPID: 0, Command: "init"},
 		{PID: 2, PPID: 1, Command: "child"},
 	}

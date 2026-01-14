@@ -12,7 +12,7 @@ import (
 // setupTestProcessTree creates a simple process tree for testing
 func setupTestProcessTree() *ProcessTree {
 	// Create test processes
-	processes := []Process{
+	processes := []*Process{
 		{PID: 1, PPID: 0, Command: "init"},
 		{PID: 2, PPID: 1, Command: "child1"},
 		{PID: 3, PPID: 1, Command: "child2"},
@@ -56,9 +56,9 @@ func TestOptimizedBuildTree(t *testing.T) {
 
 	// Verify child relationships
 	assert.True(t, processTree.Nodes[0].Child == 1 || processTree.Nodes[0].Child == 2) // init's first child is either child1 or child2
-	assert.Equal(t, 3, processTree.Nodes[1].Child)  // child1's child is grandchild
-	assert.Equal(t, -1, processTree.Nodes[2].Child) // child2 has no children
-	assert.Equal(t, -1, processTree.Nodes[3].Child) // grandchild has no children
+	assert.Equal(t, 3, processTree.Nodes[1].Child)                                     // child1's child is grandchild
+	assert.Equal(t, -1, processTree.Nodes[2].Child)                                    // child2 has no children
+	assert.Equal(t, -1, processTree.Nodes[3].Child)                                    // grandchild has no children
 
 	// Verify sibling relationships
 	if processTree.Nodes[0].Child == 1 {

@@ -55,7 +55,7 @@ type Process struct {
 	// Index of the first child process in the process tree
 	Child int
 	// Pointer to a slice of child processes
-	Children []*process.Process
+	Children []*Process
 	// Command name (executable name)
 	Command string
 	// Network connections associated with this process
@@ -78,6 +78,8 @@ type Process struct {
 	Groups []uint32
 	// Indicates if this process has a different UID from its parent
 	HasUIDTransition bool
+	// Process hierarchy
+	Hierarchy map[int32][]string
 	// Indicates if this process is the current process or an ancestor
 	IsCurrentOrAncestor bool
 	// IO counters associated with this process
@@ -110,6 +112,8 @@ type Process struct {
 	PGID int32
 	// Process ID
 	PID int32
+	// The PID index
+	PidIndex int
 	// Parent process ID
 	PPID int32
 	// Whether or not we plan to display this process
@@ -118,6 +122,8 @@ type Process struct {
 	ResourceLimit []process.RlimitStat
 	// Resource limits associated with this process
 	ResourceLimitUsage []process.RlimitStat
+	// Cached subtree signature
+	Signature string // cached subtree signature
 	// Index of the next sibling process in the process tree
 	Sister int
 	// Process status information
@@ -211,28 +217,52 @@ type DisplayOptions struct {
 // It maintains the tree structure and provides methods for building,
 // manipulating, and displaying the process hierarchy.
 type ProcessTree struct {
-	// Logger for debug and informational messages
-	Logger *slog.Logger
 	// Current depth in the tree during traversal
 	AtDepth int
-	// Display options controlling how the tree is rendered
-	DisplayOptions DisplayOptions
-	// Array of process nodes in the tree
-	Nodes []Process
-	// Map from PID to index in the Nodes array for quick lookups
-	PidToIndexMap map[int32]int
-	// Map from index in the Nodes array to PID
-	IndexToPidMap map[int]int32
-	// PID of the root process for the tree
-	RootPID int32
-	// Tree characters for drawing the tree
-	TreeChars TreeChars
-	// Enable debugging
-	DebugLevel int
 	// Colorizer for applying colors to text
 	Colorizer Colorizer
 	// Color scheme for applying colors to text
 	ColorScheme ColorScheme
+	// Enable debugging
+	DebugLevel int
+	// Display options controlling how the tree is rendered
+	DisplayOptions DisplayOptions
+	// Map from index in the Nodes array to PID
+	IndexToPidMap map[int]int32
+	// Logger for debug and informational messages
+	Logger *slog.Logger
+	// Array of process nodes in the tree
+	Nodes []*Process
+	// Map from PID to index in the Nodes array for quick lookups
+	PidToIndexMap map[int32]int
+	// PID of the root process for the tree
+	RootPID int32
+	// Tree characters for drawing the tree
+	TreeChars TreeChars
+}
+
+// ------------------------------------------------------------------------------
+// GROUP OF IDENTICAL PROCESSES
+// ------------------------------------------------------------------------------
+type ProcessGroup struct {
+	// Number of identical processes
+	Count int
+	// CPU usage of the group
+	CPUPercent float64
+	// Index of the first process in the group
+	FirstIndex int
+	// Full path of the command
+	FullPath string
+	// Indices of all processes in the group
+	Indices []int
+	// Memory usage of the group
+	MemoryUsage uint64
+	// The process owner
+	Owner string
+	// Subtree signature for comparison
+	Signature string
+	// Thread count of the group
+	ThreadCount int32
 }
 
 //------------------------------------------------------------------------------

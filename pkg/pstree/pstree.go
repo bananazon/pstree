@@ -138,7 +138,6 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 	var (
 		args               []string
 		background         bool
-		children           []*process.Process
 		command            string
 		connections        []net.ConnectionStat
 		cpuAffinity        []int32
@@ -201,6 +200,15 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 		ppid = -1
 	} else {
 		ppid = ppidOut
+	}
+
+	usernameChannel := make(chan func(proc *process.Process) (username string, err error))
+	go ProcessUsername(usernameChannel)
+	usernameOut, err := (<-usernameChannel)(proc)
+	if err != nil {
+		username = "?"
+	} else {
+		username = usernameOut
 	}
 
 	/*
@@ -467,17 +475,6 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 		}
 	}
 
-	if miniOptions.ShowUIDTransitions || miniOptions.ShowUserTransitions {
-		uidsChannel := make(chan func(proc *process.Process) (uids []uint32, err error))
-		go ProcessUIDs(uidsChannel)
-		uidsOut, err := (<-uidsChannel)(proc)
-		if err != nil {
-			uids = []uint32{}
-		} else {
-			uids = uidsOut
-		}
-	}
-
 	if len(args) > 0 {
 		if args[0] == command {
 			if len(args) == 1 {
@@ -493,7 +490,6 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 		Args:               args,
 		Background:         background,
 		Child:              -1,
-		Children:           children,
 		Command:            command,
 		Connections:        connections,
 		CPUAffinity:        cpuAffinity,

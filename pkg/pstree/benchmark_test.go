@@ -56,11 +56,11 @@ func BenchmarkBuildTree(b *testing.B) {
 }
 
 // generateTestProcesses creates a slice of test processes with a realistic hierarchy
-func generateTestProcesses(numProcs, maxDepth, branching int) []Process {
-	processes := make([]Process, 0, numProcs)
+func generateTestProcesses(numProcs, maxDepth, branching int) []*Process {
+	processes := make([]*Process, 0, numProcs)
 
 	// Always start with init process (PID 1)
-	processes = append(processes, Process{
+	processes = append(processes, &Process{
 		PID:     1,
 		PPID:    0,
 		Command: "init",
@@ -85,7 +85,7 @@ func generateTestProcesses(numProcs, maxDepth, branching int) []Process {
 				break
 			}
 
-			processes = append(processes, Process{
+			processes = append(processes, &Process{
 				PID:     pid,
 				PPID:    parentPID,
 				Command: "proc" + string(rune('A'+i%26)),

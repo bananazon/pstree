@@ -17,6 +17,7 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -47,16 +48,11 @@ var ansiEscape = regexp.MustCompile(`\x1b\[[0-9;]*[a-zA-Z]`)
 // Returns:
 //   - A pointer to the newly created ProcessTree
 func NewProcessTree(debugLevel int, logger *slog.Logger, processes []Process, displayOptions DisplayOptions) (processTree *ProcessTree) {
-	var (
-		idx  int
-		proc Process
-	)
-
 	processTree = &ProcessTree{
 		AtDepth:        0,
 		DebugLevel:     debugLevel,
 		Logger:         logger,
-		Nodes:          make([]Process, 0, len(processes)),
+		Nodes:          make([]*Process, 0, len(processes)),
 		PidToIndexMap:  make(map[int32]int, len(processes)),
 		IndexToPidMap:  make(map[int]int32, len(processes)),
 		RootPID:        displayOptions.RootPID,
@@ -64,13 +60,44 @@ func NewProcessTree(debugLevel int, logger *slog.Logger, processes []Process, di
 	}
 
 	// Create nodes
-	for _, proc = range processes {
-		// Add to tree
-		idx = len(processTree.Nodes)
+	for idx := range processes {
+		proc := &processes[idx]
+		proc.Children = []*Process{} // initialize
+		proc.Signature = ""
+
+		nodeIdx := len(processTree.Nodes)
 		processTree.Nodes = append(processTree.Nodes, proc)
-		processTree.PidToIndexMap[proc.PID] = idx
+
+		processTree.PidToIndexMap[proc.PID] = nodeIdx
 		processTree.IndexToPidMap[idx] = proc.PID
 	}
+
+	// Link children (O(n))
+	for _, child := range processTree.Nodes {
+		if parentIdx, ok := processTree.PidToIndexMap[child.PPID]; ok {
+			parent := processTree.Nodes[parentIdx]
+			parent.Children = append(parent.Children, child)
+		}
+	}
+	// IMPORTANT: clear cached signatures first
+	for _, node := range processTree.Nodes {
+		node.Signature = ""
+	}
+
+	// Compute subtree signatures for all root processes
+	for _, node := range processTree.Nodes {
+		if node.PPID == 1 || node.PID == displayOptions.RootPID {
+			computeSignature(node, displayOptions.ShowArguments)
+		}
+	}
+
+	// Find the children for each process
+	// for _, proc := range processTree.Nodes {
+	// 	if proc.PPID > 1 { // This means there is a parent PID
+	// 		parentIndex := processTree.PidToIndexMap[proc.PPID]
+	// 		processTree.Nodes[parentIndex].Children = append(processTree.Nodes[parentIndex].Children, proc)
+	// 	}
+	// }
 
 	// If PID is not set via --pid, we want to look for PID 1...
 	// https://github.com/FredHucht/pstree/blob/main/pstree.c#L558-L587
@@ -233,7 +260,7 @@ func (processTree *ProcessTree) MarkProcesses() {
 		if showAll {
 			processTree.Nodes[pidIndex].Print = true
 		} else {
-			process = processTree.Nodes[pidIndex]
+			process = *processTree.Nodes[pidIndex]
 			if len(processTree.DisplayOptions.Usernames) > 0 {
 				for _, username = range processTree.DisplayOptions.Usernames {
 					if process.Username == username {
@@ -680,12 +707,12 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	// In compact mode, format the command with count for the first process in a group
 	if processTree.DisplayOptions.CompactMode {
 		// Get the count of identical processes
-		count := GetProcessCount(processTree.Nodes, pidIndex)
+		count, groupPIDs := GetProcessCount(processTree.Nodes, pidIndex)
 
 		// If there are multiple identical processes, format with count
 		if count > 1 {
 			// Format in Linux pstree style
-			compactStr = FormatCompactOutput(commandStr, count)
+			compactStr = FormatCompactOutput(commandStr, count, groupPIDs, processTree.DisplayOptions.ShowPIDs)
 
 			if compactStr != "" {
 				// Create the connector string
@@ -817,7 +844,7 @@ func (processTree *ProcessTree) PrintTree(pidIndex int, head string) {
 		// Always initialize compact mode to identify duplicates
 		// But we'll respect the CompactMode flag when displaying
 		processTree.Logger.Debug("Initializing compact mode")
-		InitCompactMode(processTree.Nodes)
+		InitCompactMode(processTree.Nodes, &processTree.DisplayOptions)
 	}
 
 	// Skip this process if it's been marked as a duplicate in compact mode
@@ -1039,7 +1066,7 @@ func (processTree *ProcessTree) colorizeField(fieldName string, value *string, p
 			// Attribute-based colorization mode (--color flag)
 			// Don't apply attribute-based coloring to the tree prefix
 			if fieldName != "prefix" {
-				process = &processTree.Nodes[pidIndex]
+				process = processTree.Nodes[pidIndex]
 				switch processTree.DisplayOptions.ColorAttr {
 				case "age":
 					// Ensure process age is shown when coloring by age
@@ -1236,4 +1263,32 @@ func (processTree *ProcessTree) truncateANSI(input string) string {
 
 	output.WriteString(dots)
 	return output.String() + "\x1b[0m" // Prevent ANSI bleed
+}
+
+// computeSignature recursively generates a unique signature for a process subtree.
+// This includes the command, args, and all child subtrees.
+// Signatures are cached in Process.Signature.
+func computeSignature(p *Process, showArguments bool) string {
+	if p.Signature != "" {
+		return p.Signature
+	}
+
+	childSigs := make([]string, 0, len(p.Children))
+	for _, c := range p.Children {
+		childSigs = append(childSigs, computeSignature(c, showArguments))
+	}
+
+	// Ignore child order (matches pstree)
+	sort.Strings(childSigs)
+
+	self := p.Command
+	if showArguments && len(p.Args) > 0 {
+		self += " " + strings.Join(p.Args, " ")
+	}
+
+	// Include owner (matches Linux pstree)
+	self += "|" + p.Username
+
+	p.Signature = self + "(" + strings.Join(childSigs, ",") + ")"
+	return p.Signature
 }
