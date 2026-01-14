@@ -12,24 +12,12 @@ import (
 )
 
 //------------------------------------------------------------------------------
-// DATA STRUCTURES
-//------------------------------------------------------------------------------
-
-// ProcessGroup represents a group of identical processes
-type ProcessGroup struct {
-	FirstIndex int    // Index of the first process in the group
-	Count      int    // Number of identical processes
-	Indices    []int  // Indices of all processes in the group
-	FullPath   string // Full path of the command
-}
-
-//------------------------------------------------------------------------------
 // GLOBAL STATE
 //------------------------------------------------------------------------------
 
 // processGroups stores information about groups of identical processes
 // Key is the parent PID, value is a map of command -> ProcessGroup
-var processGroups map[int32]map[string]ProcessGroup
+var processGroups map[int32]map[string]map[string]ProcessGroup
 
 // skipProcesses tracks which processes should be skipped during printing
 var skipProcesses map[int]bool
@@ -49,67 +37,66 @@ var skipProcesses map[int]bool
 //
 // Parameters:
 //   - processes: Slice of Process structs to analyze for grouping
-func InitCompactMode(processes []Process) {
+func InitCompactMode(processes []*Process) {
 	var (
-		args      []string
-		cmd       string
-		exists    bool
-		group     ProcessGroup
-		parentPID int32
+		// args         []string
+		cmd          string
+		exists       bool
+		group        ProcessGroup
+		parentPID    int32
+		processOwner string
 	)
 
 	// Initialize the maps
-	processGroups = make(map[int32]map[string]ProcessGroup)
+	processGroups = make(map[int32]map[string]map[string]ProcessGroup)
 	skipProcesses = make(map[int]bool)
 
 	// Group processes with identical commands under the same parent
-	for i := range processes {
+	for pidIndex := range processes {
 		// Skip processes that are already part of a group
-		if skipProcesses[i] {
+		if skipProcesses[pidIndex] {
 			continue
 		}
 
 		// Get parent PID
-		parentPID = processes[i].PPID
+		parentPID = processes[pidIndex].PPID
 
-		// Get the command and arguments to create a composite key
-		// This ensures processes are only grouped if both command AND arguments match exactly
-		cmd = processes[i].Command
-		args = processes[i].Args
-
-		// Create a composite key with both command and arguments
-		compositeKey := cmd
-		if len(args) > 0 {
-			compositeKey = fmt.Sprintf("%s %s", cmd, strings.Join(args, " "))
-		}
+		// Get the process owner
+		processOwner = processes[pidIndex].Username
+		compositeKey := processes[pidIndex].Signature
 
 		// Initialize map for this parent if needed
 		if _, exists := processGroups[parentPID]; !exists {
-			processGroups[parentPID] = make(map[string]ProcessGroup)
+			processGroups[parentPID] = make(map[string]map[string]ProcessGroup)
 		}
 
-		// Use the composite key (command + args) for grouping
+		if _, exists = processGroups[parentPID][compositeKey]; !exists {
+			processGroups[parentPID][compositeKey] = make(map[string]ProcessGroup)
+		}
+
+		// Use the composite key for grouping
 		// This ensures that processes are only grouped if both command AND arguments match exactly
-		group, exists = processGroups[parentPID][compositeKey]
+		group, exists = processGroups[parentPID][compositeKey][processOwner]
 		if !exists {
 			// Create a new group
 			group = ProcessGroup{
-				FirstIndex: i,
 				Count:      1,
-				Indices:    []int{i},
+				FirstIndex: pidIndex,
 				FullPath:   cmd,
+				Indices:    []int{pidIndex},
+				Owner:      processOwner,
 			}
 		} else {
 			// Add to existing group
 			group.Count++
-			group.Indices = append(group.Indices, i)
+			group.Indices = append(group.Indices, pidIndex)
 
 			// Mark this process to be skipped during printing
-			skipProcesses[i] = true
+			skipProcesses[pidIndex] = true
 		}
 
 		// Update the group in the map
-		processGroups[parentPID][compositeKey] = group
+		processGroups[parentPID][compositeKey][processOwner] = group
 	}
 }
 
@@ -149,35 +136,33 @@ func ShouldSkipProcess(processIndex int) bool {
 // Returns:
 //   - count: Number of identical processes in the group
 //   - isThread: Whether the process group represents threads
-func GetProcessCount(processes []Process, processIndex int) int {
+func GetProcessCount(processes []*Process, pidIndex int) (int, []int32) {
 	var (
-		args         []string
-		cmd          string
-		parentPID    int32
+		groupPIDs    []int32
 		compositeKey string
+		parentPID    int32
+		processOwner string
 	)
 
 	// Get parent PID and command
-	args = processes[processIndex].Args
-	cmd = processes[processIndex].Command
-	parentPID = processes[processIndex].PPID
-
-	// Create the same composite key used in InitCompactMode
-	compositeKey = cmd
-	if len(args) > 0 {
-		compositeKey = cmd + " " + strings.Join(args, " ")
-	}
+	parentPID = processes[pidIndex].PPID
+	processOwner = processes[pidIndex].Username
+	compositeKey = processes[pidIndex].Signature
 
 	// Check if we have a group for this process
 	if groups, exists := processGroups[parentPID]; exists {
-		// Look up by composite key (command + args)
-		if group, exists := groups[compositeKey]; exists && group.FirstIndex == processIndex {
-			return group.Count
+		// Look up by owner and composite key (command + args)
+		if group, exists := groups[compositeKey][processOwner]; exists && group.FirstIndex == pidIndex {
+			// Find PIDs for each member of the group
+			for i := range group.Indices {
+				groupPIDs = append(groupPIDs, processes[group.Indices[i]].PID)
+			}
+			return group.Count, groupPIDs
 		}
 	}
 
 	// No group or not the first process in the group
-	return 1
+	return 1, []int32{}
 }
 
 //------------------------------------------------------------------------------
@@ -196,11 +181,33 @@ func GetProcessCount(processes []Process, processIndex int) int {
 //
 // Returns:
 //   - Formatted string for display, or empty string if threads should be hidden
-func FormatCompactOutput(command string, count int) string {
+func FormatCompactOutput(command string, count int, groupPIDs []int32, showPIDs bool) string {
 	if count <= 1 {
 		return command
 	}
 
-	// Format for processes: N*[command]
-	return fmt.Sprintf("%d*[%s]", count, filepath.Base(command))
+	if showPIDs {
+		return fmt.Sprintf("%d*[%s] (%s)", count, filepath.Base(command), strings.Join(PIDsToString(groupPIDs), ","))
+	} else {
+		return fmt.Sprintf("%d*[%s]", count, filepath.Base(command))
+	}
+}
+
+// PIDsToString converts a slice of process IDs to a slice of their string representations.
+//
+// This function is used in compact mode when displaying process groups with PIDs.
+// Each PID is converted to a string representation that can be joined together
+// for display in the process tree.
+//
+// Parameters:
+//   - pids: Slice of int32 process IDs to convert
+//
+// Returns:
+//   - []string: Slice of string representations of the PIDs
+func PIDsToString(pids []int32) []string {
+	pidStrings := make([]string, len(pids))
+	for i, pid := range pids {
+		pidStrings[i] = fmt.Sprintf("%d", pid)
+	}
+	return pidStrings
 }
