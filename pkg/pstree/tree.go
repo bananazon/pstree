@@ -844,7 +844,7 @@ func (processTree *ProcessTree) PrintTree(pidIndex int, head string) {
 		// Always initialize compact mode to identify duplicates
 		// But we'll respect the CompactMode flag when displaying
 		processTree.Logger.Debug("Initializing compact mode")
-		InitCompactMode(processTree.Nodes)
+		InitCompactMode(processTree.Nodes, &processTree.DisplayOptions)
 	}
 
 	// Skip this process if it's been marked as a duplicate in compact mode

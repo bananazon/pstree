@@ -37,7 +37,8 @@ var skipProcesses map[int]bool
 //
 // Parameters:
 //   - processes: Slice of Process structs to analyze for grouping
-func InitCompactMode(processes []*Process) {
+//   - displayOptions: DisplayOptions struct to configure the display options
+func InitCompactMode(processes []*Process, displayOptions *DisplayOptions) {
 	var (
 		// args         []string
 		cmd          string
@@ -75,7 +76,7 @@ func InitCompactMode(processes []*Process) {
 		}
 
 		// Use the composite key for grouping
-		// This ensures that processes are only grouped if both command AND arguments match exactly
+		// This ensures that processes are only grouped if both signature matches exactly
 		group, exists = processGroups[parentPID][compositeKey][processOwner]
 		if !exists {
 			// Create a new group
@@ -90,6 +91,15 @@ func InitCompactMode(processes []*Process) {
 			// Add to existing group
 			group.Count++
 			group.Indices = append(group.Indices, pidIndex)
+			if displayOptions.ShowCpuPercent {
+				group.CPUPercent += processes[pidIndex].CPUPercent
+			}
+			if displayOptions.ShowMemoryUsage {
+				group.MemoryUsage += processes[pidIndex].MemoryInfo.RSS
+			}
+			if displayOptions.ShowNumThreads {
+				group.ThreadCount += processes[pidIndex].NumThreads
+			}
 
 			// Mark this process to be skipped during printing
 			skipProcesses[pidIndex] = true

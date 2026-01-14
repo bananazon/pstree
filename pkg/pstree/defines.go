@@ -247,16 +247,22 @@ type ProcessTree struct {
 type ProcessGroup struct {
 	// Number of identical processes
 	Count int
+	// CPU usage of the group
+	CPUPercent float64
 	// Index of the first process in the group
 	FirstIndex int
 	// Full path of the command
 	FullPath string
 	// Indices of all processes in the group
 	Indices []int
+	// Memory usage of the group
+	MemoryUsage uint64
 	// The process owner
 	Owner string
 	// Subtree signature for comparison
 	Signature string
+	// Thread count of the group
+	ThreadCount int32
 }
 
 //------------------------------------------------------------------------------

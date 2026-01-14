@@ -17,7 +17,7 @@ func TestInitCompactMode(t *testing.T) {
 	processes := []*Process{proc1, proc2, proc3, proc4, proc5}
 
 	// Initialize compact mode
-	InitCompactMode(processes)
+	InitCompactMode(processes, &DisplayOptions{})
 
 	// Verify that identical processes are grouped correctly
 	// proc2 and proc3 should be grouped (same command, same args, same parent)
@@ -47,7 +47,7 @@ func TestShouldSkipProcess(t *testing.T) {
 	processes := []*Process{proc1, proc2, proc3}
 
 	// Initialize compact mode
-	InitCompactMode(processes)
+	InitCompactMode(processes, &DisplayOptions{})
 
 	// Verify that ShouldSkipProcess returns the correct values
 	assert.False(t, ShouldSkipProcess(0))
@@ -68,7 +68,7 @@ func TestGetProcessCount(t *testing.T) {
 	processes := []*Process{proc1, proc2, proc3, proc4}
 
 	// Initialize compact mode
-	InitCompactMode(processes)
+	InitCompactMode(processes, &DisplayOptions{})
 
 	// Test GetProcessCount for the first process in a group
 	count, _ := GetProcessCount(processes, 1)
@@ -87,7 +87,7 @@ func TestGetProcessCount(t *testing.T) {
 	processes2 := []*Process{proc1, proc5, proc6}
 
 	// Initialize compact mode
-	InitCompactMode(processes2)
+	InitCompactMode(processes2, &DisplayOptions{})
 
 	// Test GetProcessCount for a process with threads
 	count, _ = GetProcessCount(processes2, 1)
