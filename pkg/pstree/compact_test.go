@@ -74,12 +74,12 @@ func TestGetProcessCount(t *testing.T) {
 	processTree.InitCompactMode()
 
 	// Test GetProcessCount for the first process in a group
-	count, _, _, _, _ := processTree.GetProcessCount(1)
+	count, _, _, _, _, _ := processTree.GetProcessCount(1)
 	assert.Equal(t, 3, count) // proc2 has two duplicates (proc3 and proc4)
 	// assert.False(t, isThread) // proc2 is not a thread
 
 	// Test GetProcessCount for a process that should be skipped
-	count, _, _, _, _ = processTree.GetProcessCount(2)
+	count, _, _, _, _, _ = processTree.GetProcessCount(2)
 	assert.Equal(t, 1, count) // Not the first in group, so count is 1
 	// assert.False(t, isThread)
 
@@ -94,7 +94,7 @@ func TestGetProcessCount(t *testing.T) {
 	processTree2.InitCompactMode()
 
 	// Test GetProcessCount for a process with threads
-	count, _, _, _, _ = processTree.GetProcessCount(1)
+	count, _, _, _, _, _ = processTree.GetProcessCount(1)
 	assert.Equal(t, 2, count) // proc5 has one duplicate (proc6)
 	// assert.True(t, isThread)  // proc5 is a thread
 }
