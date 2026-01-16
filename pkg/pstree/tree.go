@@ -51,12 +51,13 @@ func NewProcessTree(debugLevel int, logger *slog.Logger, processes []Process, di
 	processTree = &ProcessTree{
 		AtDepth:        0,
 		DebugLevel:     debugLevel,
+		DisplayOptions: displayOptions,
+		IndexToPidMap:  make(map[int]int32, len(processes)),
 		Logger:         logger,
 		Nodes:          make([]*Process, 0, len(processes)),
 		PidToIndexMap:  make(map[int32]int, len(processes)),
-		IndexToPidMap:  make(map[int]int32, len(processes)),
+		ProcessGroups:  make(map[int32]map[string]map[string]ProcessGroup),
 		RootPID:        displayOptions.RootPID,
-		DisplayOptions: displayOptions,
 	}
 
 	// Create nodes
@@ -90,14 +91,6 @@ func NewProcessTree(debugLevel int, logger *slog.Logger, processes []Process, di
 			computeSignature(node, displayOptions.ShowArguments)
 		}
 	}
-
-	// Find the children for each process
-	// for _, proc := range processTree.Nodes {
-	// 	if proc.PPID > 1 { // This means there is a parent PID
-	// 		parentIndex := processTree.PidToIndexMap[proc.PPID]
-	// 		processTree.Nodes[parentIndex].Children = append(processTree.Nodes[parentIndex].Children, proc)
-	// 	}
-	// }
 
 	// If PID is not set via --pid, we want to look for PID 1...
 	// https://github.com/FredHucht/pstree/blob/main/pstree.c#L558-L587
@@ -166,16 +159,6 @@ func NewProcessTree(debugLevel int, logger *slog.Logger, processes []Process, di
 //
 // The method handles cases where a parent process might not exist in the tree (e.g., if the
 // parent was not included in the original process list or if it's the process itself).
-// BuildTree constructs the hierarchical relationships between processes in the tree.
-//
-// This method establishes the parent-child relationships between processes by connecting
-// each process to its parent based on the PPID (Parent Process ID). It creates a tree structure
-// where each node can have one parent and multiple children, with siblings linked in a list.
-// The resulting tree structure enables efficient traversal for operations like marking,
-// filtering, and visualization.
-//
-// The method handles cases where a parent process might not exist in the tree (e.g., if the
-// parent was not included in the original process list or if it's the process itself).
 //
 // Refactoring opportunity: This function could be broken down into smaller functions:
 // - initializeNodes: Initialize all nodes with default values
@@ -229,9 +212,6 @@ func (processTree *ProcessTree) BuildTree() {
 // Functions in this section handle the identification and marking of processes
 // that should be included in the display, based on various filtering criteria.
 
-// MarkProcesses marks processes that should be displayed based on filtering criteria.
-// It applies various filters such as process name pattern matching, username filtering,
-// root process exclusion, and PID filtering to determine which processes should be displayed.
 // MarkProcesses marks processes that should be displayed based on filtering criteria.
 // It applies various filters such as process name pattern matching, username filtering,
 // root process exclusion, and PID filtering to determine which processes should be displayed.
@@ -296,9 +276,6 @@ func (processTree *ProcessTree) MarkProcesses() {
 // DropUnmarked removes processes that are not marked for display from the process tree.
 // It modifies the process tree structure to maintain proper parent-child relationships
 // while excluding processes that should not be displayed.
-// DropUnmarked removes processes that are not marked for display from the process tree.
-// It modifies the process tree structure to maintain proper parent-child relationships
-// while excluding processes that should not be displayed.
 //
 // Refactoring opportunity: This function could be split into:
 // - dropUnmarkedChildren: Remove unmarked children from each node
@@ -360,12 +337,12 @@ func (processTree *ProcessTree) MarkUIDTransitions() {
 
 		// Get parent index
 		ppidIndex = processTree.Nodes[pidIndex].Parent
+		processTree.Nodes[pidIndex].ParentUsername = processTree.Nodes[ppidIndex].Username
 
 		// Compare UIDs between process and its parent
 		if len(processTree.Nodes[pidIndex].UIDs) > 0 && len(processTree.Nodes[ppidIndex].UIDs) > 0 {
 			// Store parent UID regardless of transition
 			processTree.Nodes[pidIndex].ParentUID = processTree.Nodes[ppidIndex].UIDs[0]
-			processTree.Nodes[pidIndex].ParentUsername = processTree.Nodes[ppidIndex].Username
 
 			// Compare the first UID (effective UID
 			if processTree.Nodes[pidIndex].UIDs[0] != processTree.Nodes[ppidIndex].UIDs[0] {
@@ -387,43 +364,6 @@ func (processTree *ProcessTree) MarkUIDTransitions() {
 				processTree.Nodes[pidIndex].HasUIDTransition = true
 			}
 		}
-	}
-}
-
-// MarkCurrentAndAncestors marks the current process and all its ancestors.
-// This function identifies the current process by its PID and marks it and all
-// its ancestors with IsCurrentOrAncestor=true for highlighting in the display.
-//
-// Parameters:
-//   - currentPid: The PID of the current process to highlight
-func (processTree *ProcessTree) MarkCurrentAndAncestors(currentPid int32) {
-	if currentPid <= 0 {
-		return
-	}
-
-	processTree.Logger.Debug(fmt.Sprintf("Marking current process %d and its ancestors", currentPid))
-	var (
-		currentIndex int
-		parentIndex  int
-	)
-
-	// Find the current process index
-	currentIndex = processTree.getPidIndex(currentPid)
-	if currentIndex == -1 {
-		processTree.Logger.Debug(fmt.Sprintf("Current process %d not found", currentPid))
-		return
-	}
-
-	// Mark the current process
-	processTree.Nodes[currentIndex].IsCurrentOrAncestor = true
-
-	// Mark all ancestors
-
-	parentIndex = processTree.Nodes[currentIndex].Parent
-	for parentIndex != -1 {
-		processTree.Logger.Debug(fmt.Sprintf("Marking pid %d as ancestor of current process", processTree.IndexToPidMap[parentIndex]))
-		processTree.Nodes[parentIndex].IsCurrentOrAncestor = true
-		parentIndex = processTree.Nodes[parentIndex].Parent
 	}
 }
 
@@ -453,14 +393,6 @@ func (processTree *ProcessTree) ShowPrintable() {
 // Functions in this section handle the visual representation of the process tree,
 // including line formatting, tree branch construction, and display options.
 
-// buildLinePrefix constructs the tree visualization prefix for a process node in the tree display.
-// It creates the branch connectors (├, └, etc.) that show the hierarchical relationship between processes.
-//
-// Parameters:
-//   - head: The accumulated prefix string from parent levels
-//   - pidIndex: Index of the current process in the Nodes array
-//
-// Returns a formatted string containing tree branch characters that represent the process's position in the hierarchy.
 // buildLinePrefix constructs the tree visualization prefix for a process node in the tree display.
 // It creates the branch connectors (├, └, etc.) that show the hierarchical relationship between processes.
 //
@@ -553,16 +485,22 @@ func (processTree *ProcessTree) buildLinePrefix(head string, pidIndex int) strin
 	return builder.String()
 }
 
-// buildLineItem constructs a complete formatted line for a process in the tree display.
-// It combines the tree structure prefix with various process information based on display options.
-//
-// Parameters:
-//   - head: The accumulated prefix string from parent levels
-//   - pidIndex: Index of the current process in the Nodes array
-//
-// Returns a fully formatted string containing the process information with appropriate formatting and coloring.
-// The string includes elements such as tree structure, process IDs, resource usage, and command information
-// based on the configured display options.
+func (processTree *ProcessTree) getProcessGroup(pidIndex int) (*ProcessGroup, bool) {
+	p := processTree.Nodes[pidIndex]
+
+	parentGroups, ok := processTree.ProcessGroups[p.PPID]
+	if !ok {
+		return nil, false
+	}
+
+	group, ok := parentGroups[p.Signature][p.Username]
+	if !ok {
+		return nil, false
+	}
+
+	return &group, true
+}
+
 // buildLineItem constructs a complete formatted line for a process in the tree display.
 // It combines the tree structure prefix with various process information based on display options.
 //
@@ -581,6 +519,7 @@ func (processTree *ProcessTree) buildLinePrefix(head string, pidIndex int) strin
 // - formatCommandInfo: Format command and arguments
 // - formatOwnerInfo: Format username and UID transition information
 func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string {
+
 	processTree.Logger.Debug(fmt.Sprintf("processTree.buildLineItem(head=\"%s\", pidIndex=%d, atDepth=%d)", head, pidIndex, processTree.AtDepth))
 	var (
 		ageString       string
@@ -589,6 +528,7 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 		compactStr      string
 		connector       string
 		cpuPercent      string
+		lineItemMap     map[string]string
 		linePrefix      string
 		memoryUsage     string
 		owner           string
@@ -600,6 +540,10 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 		ppidString      string
 		threads         string
 	)
+
+	// Create a map to hold the line items, they will get
+	// put into the builder later
+	lineItemMap = make(map[string]string)
 
 	// Create a strings.Builder with an estimated capacity
 	// This helps avoid reallocations as the builder grows
@@ -634,15 +578,13 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	if len(pidPgidSlice) > 0 {
 		pidPgidString = fmt.Sprintf("(%s)", strings.Join(pidPgidSlice, ","))
 		processTree.colorizeField("pidPgid", &pidPgidString, pidIndex)
-		builder.WriteString(pidPgidString)
-		builder.WriteString(" ")
+		lineItemMap["pidPgid"] = pidPgidString
 	}
 
 	if processTree.DisplayOptions.ShowOwner {
 		owner = processTree.Nodes[pidIndex].Username
 		processTree.colorizeField("owner", &owner, pidIndex)
-		builder.WriteString(owner)
-		builder.WriteString(" ")
+		lineItemMap["owner"] = owner
 	}
 
 	if processTree.DisplayOptions.ShowProcessAge {
@@ -657,30 +599,25 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 			strings.Join(ageSlice, ":"),
 		)
 		processTree.colorizeField("age", &ageString, pidIndex)
-		builder.WriteString(ageString)
-		builder.WriteString(" ")
+		lineItemMap["age"] = ageString
 	}
 
 	if processTree.DisplayOptions.ShowCpuPercent {
 		cpuPercent = fmt.Sprintf("(c:%.2f%%)", processTree.Nodes[pidIndex].CPUPercent)
 		processTree.colorizeField("cpu", &cpuPercent, pidIndex)
-		builder.WriteString(cpuPercent)
-		builder.WriteString(" ")
+		lineItemMap["cpu"] = cpuPercent
 	}
 
 	if processTree.DisplayOptions.ShowMemoryUsage {
 		memoryUsage = fmt.Sprintf("(m:%s)", util.ByteConverter(processTree.Nodes[pidIndex].MemoryInfo.RSS))
 		processTree.colorizeField("memory", &memoryUsage, pidIndex)
-		builder.WriteString(memoryUsage)
-		builder.WriteString(" ")
+		lineItemMap["memory"] = memoryUsage
 	}
 
 	if processTree.DisplayOptions.ShowNumThreads {
-		// Always show thread count, even when showing compact format
 		threads = fmt.Sprintf("(t:%d)", processTree.Nodes[pidIndex].NumThreads)
 		processTree.colorizeField("threads", &threads, pidIndex)
-		builder.WriteString(threads)
-		builder.WriteString(" ")
+		lineItemMap["threads"] = threads
 	}
 
 	if processTree.DisplayOptions.ShowUIDTransitions && processTree.Nodes[pidIndex].HasUIDTransition {
@@ -697,8 +634,7 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 
 	if ownerTransition != "" {
 		processTree.colorizeField("ownerTransition", &ownerTransition, pidIndex)
-		builder.WriteString(ownerTransition)
-		builder.WriteString(" ")
+		lineItemMap["ownerTransition"] = ownerTransition
 	}
 
 	// Get the command - use full path when compact mode is disabled
@@ -707,7 +643,7 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	// In compact mode, format the command with count for the first process in a group
 	if processTree.DisplayOptions.CompactMode {
 		// Get the count of identical processes
-		count, groupPIDs := GetProcessCount(processTree.Nodes, pidIndex)
+		count, groupPIDs, cpuPercent, memoryUsage, numThreads := processTree.GetProcessCount(pidIndex)
 
 		// If there are multiple identical processes, format with count
 		if count > 1 {
@@ -715,6 +651,24 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 			compactStr = FormatCompactOutput(commandStr, count, groupPIDs, processTree.DisplayOptions.ShowPIDs)
 
 			if compactStr != "" {
+				if processTree.DisplayOptions.ShowCpuPercent {
+					cpuPercentStr := fmt.Sprintf("(c:%.2f%%)", cpuPercent)
+					processTree.colorizeField("cpu", &cpuPercentStr, pidIndex)
+					lineItemMap["cpu"] = cpuPercentStr
+				}
+
+				if processTree.DisplayOptions.ShowMemoryUsage {
+					memoryUsageStr := fmt.Sprintf("(m:%s)", util.ByteConverter(memoryUsage))
+					processTree.colorizeField("memory", &memoryUsageStr, pidIndex)
+					lineItemMap["memory"] = memoryUsageStr
+				}
+
+				if processTree.DisplayOptions.ShowNumThreads {
+					numThreadsStr := fmt.Sprintf("(t:%d)", numThreads)
+					processTree.colorizeField("threads", &numThreadsStr, pidIndex)
+					lineItemMap["threads"] = numThreadsStr
+				}
+
 				// Create the connector string
 				connector = "───"
 
@@ -733,36 +687,32 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 		}
 	}
 
-	// For threads in non-compact mode, wrap the command in curly braces
-	// if !processTree.DisplayOptions.CompactMode && isThread && processTree.Nodes[pidIndex].NumThreads == 0 {
-	// 	// This is likely a thread of a process
-	// 	commandStr = fmt.Sprintf("{%s}", commandStr)
-	// }
-
 	processTree.colorizeField("command", &commandStr, pidIndex)
-	builder.WriteString(commandStr)
-	builder.WriteString(" ")
+	lineItemMap["command"] = commandStr
 
+	// Now convert the map to a builder
 	if processTree.DisplayOptions.ShowArguments {
 		if len(processTree.Nodes[pidIndex].Args) > 0 {
 			args = strings.Join(processTree.Nodes[pidIndex].Args, " ")
 			processTree.colorizeField("args", &args, pidIndex)
-			builder.WriteString(args)
-			builder.WriteString(" ")
+			lineItemMap["args"] = args
+		}
+	}
+
+	keys := []string{"pidPgid", "owner", "age", "cpu", "memory", "threads", "ownerTransition", "command", "args"}
+	for idx, key := range keys {
+		value, ok := lineItemMap[key]
+		if ok {
+			builder.WriteString(value)
+			if idx < len(keys)-1 {
+				builder.WriteString(" ")
+			}
 		}
 	}
 
 	return builder.String()
 }
 
-// buildNewHead constructs a new head string for child processes based on the current process's position.
-//
-// Parameters:
-//   - head: The accumulated prefix string from parent levels
-//   - pidIndex: Index of the current process in the Nodes array
-//
-// Returns a string to be used as the head for child processes, including appropriate vertical bars
-// or spaces based on whether the current process has visible siblings.
 // buildNewHead constructs a new head string for child processes based on the current process's position.
 //
 // Parameters:
@@ -816,16 +766,6 @@ func (processTree *ProcessTree) buildNewHead(head string, pidIndex int) string {
 //   - pidIndex: Index of the current process to print
 //   - head: String representing the indentation and tree structure for the current line
 //
-// PrintTree recursively prints a process tree with customizable formatting options.
-//
-// This function displays a process and all its children in a tree-like structure,
-// with various display options such as process age, CPU usage, memory usage, etc.
-// The tree is formatted using different graphical styles based on the display options.
-//
-// Parameters:
-//   - pidIndex: Index of the current process to print
-//   - head: String representing the indentation and tree structure for the current line
-//
 // Refactoring opportunity: This function could be split into:
 // - printCurrentNode: Print just the current node
 // - printChildNodes: Handle the recursive printing of child nodes
@@ -844,7 +784,7 @@ func (processTree *ProcessTree) PrintTree(pidIndex int, head string) {
 		// Always initialize compact mode to identify duplicates
 		// But we'll respect the CompactMode flag when displaying
 		processTree.Logger.Debug("Initializing compact mode")
-		InitCompactMode(processTree.Nodes, &processTree.DisplayOptions)
+		processTree.InitCompactMode()
 	}
 
 	// Skip this process if it's been marked as a duplicate in compact mode
@@ -916,13 +856,6 @@ func (processTree *ProcessTree) PrintTree(pidIndex int, head string) {
 //
 // Parameters:
 //   - pidIndex: Index of the process whose parents should be marked
-//
-// markParents marks all parent processes of a given process as printable.
-// This function recursively traverses up the process tree, marking each parent
-// process with Print=true until it reaches the root process (or a process with no parent).
-//
-// Parameters:
-//   - pidIndex: Index of the process whose parents should be marked
 func (processTree *ProcessTree) markParents(pidIndex int) {
 	processTree.Logger.Debug(fmt.Sprintf("Entering markParents(), pidIndex=%d, pid=%d", pidIndex, processTree.IndexToPidMap[pidIndex]))
 	var (
@@ -938,13 +871,6 @@ func (processTree *ProcessTree) markParents(pidIndex int) {
 	}
 }
 
-// markChildren marks a process and all its child processes as printable.
-// This function recursively traverses down the process tree, marking each child
-// process with Print=true, and continues with any sibling processes.
-//
-// Parameters:
-//   - pidIndex: Index of the process whose children should be marked
-//
 // markChildren marks a process and all its child processes as printable.
 // This function recursively traverses down the process tree, marking each child
 // process with Print=true, and continues with any sibling processes.
@@ -1010,23 +936,6 @@ func (processTree *ProcessTree) markChildren(pidIndex int) {
 //
 // The method uses the hybrid approach data (combining gopsutil with direct ps command calls)
 // when applying attribute-based coloring, ensuring accurate thresholds for CPU and memory usage.
-// colorizeField applies appropriate color formatting to a specific field in the process tree output.
-//
-// This method enhances the visual representation of the process tree by applying colors
-// to different elements based on the current display options. It supports two main coloring modes:
-//
-//  1. Standard colorization (--colorize flag): Each field type gets a predefined color
-//  2. Attribute-based colorization (--color flag): Colors are applied based on process attributes
-//     like CPU or memory usage, with thresholds determining the color (green/yellow/red)
-//
-// Parameters:
-//   - fieldName: String identifying which field is being colored (e.g., "cpu", "memory", "command")
-//   - value: Pointer to the string value to be colored (modified in-place)
-//   - pidIndex: Index of the process to be colored
-//
-// Refactoring opportunity: This function could be split into:
-// - applyStandardColors: Apply standard color scheme
-// - applyAttributeBasedColors: Apply colors based on attribute thresholds
 func (processTree *ProcessTree) colorizeField(fieldName string, value *string, pidIndex int) {
 	var (
 		process *Process
@@ -1132,46 +1041,6 @@ func (processTree *ProcessTree) colorizeField(fieldName string, value *string, p
 //------------------------------------------------------------------------------
 // General utility functions used throughout the process tree implementation.
 
-// getPidIndex finds the index of a process with the specified PID in the processes slice.
-//
-// Parameters:
-//   - pid: The PID to search for
-//
-// Returns:
-//   - The index of the process with the specified PID, or -1 if not found
-//
-// getPidIndex finds the index of a process with the specified PID in the processes slice.
-//
-// Parameters:
-//   - pid: The PID to search for
-//
-// Returns:
-//   - The index of the process with the specified PID, or -1 if not found
-func (processTree *ProcessTree) getPidIndex(pid int32) int {
-	var (
-		pidIndex int
-	)
-
-	for pidIndex = range processTree.Nodes {
-		if processTree.Nodes[pidIndex].PID == pid {
-			return pidIndex
-		}
-	}
-	return -1
-}
-
-// visibleWidth calculates the display width of a string containing ANSI escape sequences.
-// It ignores ANSI escape sequences and counts only the visible characters' width.
-// The function properly handles multi-byte Unicode characters and characters with
-// different display widths (like CJK characters that take up 2 columns).
-//
-// Parameters:
-//   - input: The string to calculate the width for, which may contain ANSI escape sequences
-//
-// Returns:
-//
-//	The display width of the string, excluding ANSI escape sequences
-//
 // visibleWidth calculates the display width of a string containing ANSI escape sequences.
 // It ignores ANSI escape sequences and counts only the visible characters' width.
 // The function properly handles multi-byte Unicode characters and characters with
@@ -1197,22 +1066,6 @@ func (processTree *ProcessTree) visibleWidth(input string) int {
 	return width
 }
 
-// TruncateANSI truncates a string containing ANSI escape sequences to fit within a specified screen width.
-// It preserves ANSI color and formatting codes while only counting visible characters toward the width limit.
-//
-// Parameters:
-//   - logger: A structured logger for debug output
-//   - input: The string to truncate, which may contain ANSI escape sequences
-//   - screenWidth: The maximum width (in visible characters) the output string should occupy
-//
-// The function handles multi-byte Unicode characters correctly by using utf8.DecodeRuneInString
-// and accounts for characters with different display widths using the runewidth package.
-// If truncation occurs, "..." is appended to the result.
-//
-// Returns:
-//
-//	A string that fits within screenWidth, with ANSI sequences preserved.
-//
 // truncateANSI truncates a string containing ANSI escape sequences to fit within a specified screen width.
 // It preserves ANSI color and formatting codes while only counting visible characters toward the width limit.
 //
