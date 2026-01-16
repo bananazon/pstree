@@ -55,7 +55,6 @@ var (
 	installedMemory         *mem.VirtualMemoryStat
 	processes               []pstree.Process
 	processTree             *pstree.ProcessTree
-	processMap              *pstree.ProcessMap // New variable for the map-based tree
 	screenWidth             int
 	sorted                  []pstree.Process
 	usageTemplate           string
@@ -63,7 +62,7 @@ var (
 	validAttributes         []string = []string{"age", "cpu", "mem"}
 	validColorSchemes       []string = []string{"darwin", "linux", "powershell", "windows10", "xterm"}
 	validOrderBy            []string = []string{"age", "cpu", "mem", "pid", "threads", "user"}
-	version                 string   = "0.9.4"
+	version                 string   = "0.9.5"
 	versionString           string
 	rootCmd                 = &cobra.Command{
 		Use:    "pstree",
@@ -300,8 +299,7 @@ For more information about these matters, see the file named LICENSE.`,
 	}
 
 	// If any of the following flags are set, then compact mode should be disabled
-	// This is because some of the results or offenders may be buried in collapsed subtrees
-	if flagColorAttr != "" || flagCpu || flagMemory || flagContains != "" {
+	if flagColorAttr != "" || flagContains != "" {
 		flagCompactNot = true
 	}
 
@@ -339,51 +337,28 @@ For more information about these matters, see the file named LICENSE.`,
 		WideDisplay:         flagWide,
 	}
 
-	// Choose between traditional array-based tree or new map-based tree
-	// Filtering by PID, username, etc. is not currently working with the map-based implementation
-	if flagMapBasedTree {
+	// Use the traditional array-based tree structure
+	logger.Logger.Debug("Using traditional array-based tree structure")
 
-		// Use the new map-based tree structure
-		logger.Logger.Debug("Using map-based tree structure")
+	// Generate the process tree
+	processTree = pstree.NewProcessTree(debugLevel, logger.Logger, processes, displayOptions)
+	// pretty.Println(processTree.Nodes)
+	// os.Exit(0)
 
-		// Build the process map
-		processMap = pstree.NewProcessMap(logger.Logger, processes, displayOptions)
+	// Mark processes to be displayed
+	processTree.MarkProcesses()
 
-		// Mark processes to be displayed
-		processMap.FindPrintable()
-		// pretty.Println(processMap.Nodes)
+	// Drop unmarked processes
+	processTree.DropUnmarked()
 
-		// Drop unmarked processes
-		// processMap.DropUnmarked()
-
-		// Show processes that will be displayed
-		processMap.ShowPrintable()
-
-		// Print the process tree with simple indentation based on depth
-		processMap.PrintTree()
-
-	} else {
-		// Use the traditional array-based tree structure
-		logger.Logger.Debug("Using traditional array-based tree structure")
-
-		// Generate the process tree
-		processTree = pstree.NewProcessTree(debugLevel, logger.Logger, processes, displayOptions)
-
-		// Mark processes to be displayed
-		processTree.MarkProcesses()
-
-		// Drop unmarked processes
-		processTree.DropUnmarked()
-
-		// Show processes that will be displayed
-		if processTree.DebugLevel > 2 {
-			processTree.ShowPrintable()
-			os.Exit(0)
-		}
-
-		// Print the tree
-		processTree.PrintTree(0, "")
+	// Show processes that will be displayed
+	if processTree.DebugLevel > 2 {
+		processTree.ShowPrintable()
+		os.Exit(0)
 	}
+
+	// Print the tree
+	processTree.PrintTree(0, "")
 
 	return nil
 }

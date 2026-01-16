@@ -1,6 +1,6 @@
 .\" -*- coding: utf-8 -*-
 .ad b
-.TH PSTREE 1 "January 14, 2026" "0.9.4" "User Commands"
+.TH PSTREE 1 "January 15, 2026" "0.9.5" "User Commands"
 .SH NAME
 pstree \- display a tree of processes
 .SH SYNOPSIS
@@ -77,7 +77,7 @@ Do not compact identical subtrees in output. By default, identical process subtr
 Show only branches containing processes with \fIpattern\fR in the command line. This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
 .TP
 .B \-c, \--cpu
-Show the CPU utilization for each process in the list using the format (c:0.00%). This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
+Show the CPU utilization for each process in the list using the format (c:0.00%). In compacted view, this value will represent the sum of all process group members.
 .TP
 .B \-d, \--debug
 Show debugging data. Specify multiple times (-d, -dd, -ddd) to increase debugging level.
@@ -95,7 +95,7 @@ Use IBM-850 line drawing characters; only supported on DOS/Windows.
 Print tree to \fIlevel\fR level deep.
 .TP
 .B \-m, \--memory
-Show the memory usage for each process in the list using the format (m:0.00 MiB). This option implies \fB--compact-not\fR, since some of the results may be buried in collapsed subtrees.
+Show the memory usage for each process in the list using the format (m:0.00 MiB). In compacted view, this value will represent the sum of all process group members.
 .TP
 .B \-o, \--order-by \fIfield\fR
 Sort processes by a given field. Available options are: age, cpu, mem, pid, threads, user.
@@ -122,7 +122,7 @@ Show parent process IDs. Parent Process IDs are shown as decimal numbers in pare
 Show the owner of the process.
 .TP
 .B \-t, \--threads
-Show the number of threads for each process in the list using the format (t:xx).
+Show the number of threads for each process in the list using the format (t:xx). In compacted view, this value will represent the sum of all process group members.
 .TP
 .B \-I, \--uid-transitions
 Show processes where the user ID changes from the parent process, e.g., (uid\[u2192]uid). This makes it easy to identify privilege escalations or drops in the process tree. This option cannot be used with \fB--user-transitions\fR.

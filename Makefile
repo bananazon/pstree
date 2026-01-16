@@ -1,7 +1,7 @@
 GOPATH := $(shell go env GOPATH)
 GOOS := $(shell go env GOOS)
 GOARCH := $(shell go env GOARCH)
-PSTREE_VERSION := 0.9.4
+PSTREE_VERSION := 0.9.5
 
 GOOS ?= $(shell uname | tr '[:upper:]' '[:lower:]')
 GOARCH ?=$(shell arch)

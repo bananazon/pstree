@@ -475,6 +475,17 @@ func GenerateProcess(proc *process.Process, miniOptions DisplayOptions) Process 
 		}
 	}
 
+	if miniOptions.ShowUIDTransitions {
+		uidsChannel := make(chan func(proc *process.Process) (uids []uint32, err error))
+		go ProcessUIDs(uidsChannel)
+		uidsOut, err := (<-uidsChannel)(proc)
+		if err != nil {
+			uids = []uint32{}
+		} else {
+			uids = uidsOut
+		}
+	}
+
 	if len(args) > 0 {
 		if args[0] == command {
 			if len(args) == 1 {

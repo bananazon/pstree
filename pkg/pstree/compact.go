@@ -22,10 +22,9 @@ var processGroups map[int32]map[string]map[string]ProcessGroup
 // skipProcesses tracks which processes should be skipped during printing
 var skipProcesses map[int]bool
 
-//------------------------------------------------------------------------------
+// ------------------------------------------------------------------------------
 // INITIALIZATION
-//------------------------------------------------------------------------------
-
+// ------------------------------------------------------------------------------
 // InitCompactMode initializes the compact mode by identifying identical processes.
 //
 // This function analyzes the provided processes slice and groups processes that have
@@ -38,7 +37,8 @@ var skipProcesses map[int]bool
 // Parameters:
 //   - processes: Slice of Process structs to analyze for grouping
 //   - displayOptions: DisplayOptions struct to configure the display options
-func InitCompactMode(processes []*Process, displayOptions *DisplayOptions) {
+//   - processGroups: Map to store process groups
+func (processTree *ProcessTree) InitCompactMode() {
 	var (
 		// args         []string
 		cmd          string
@@ -49,35 +49,35 @@ func InitCompactMode(processes []*Process, displayOptions *DisplayOptions) {
 	)
 
 	// Initialize the maps
-	processGroups = make(map[int32]map[string]map[string]ProcessGroup)
+	// processGroups = make(map[int32]map[string]map[string]ProcessGroup)
 	skipProcesses = make(map[int]bool)
 
 	// Group processes with identical commands under the same parent
-	for pidIndex := range processes {
+	for pidIndex := range processTree.Nodes {
 		// Skip processes that are already part of a group
 		if skipProcesses[pidIndex] {
 			continue
 		}
 
 		// Get parent PID
-		parentPID = processes[pidIndex].PPID
+		parentPID = processTree.Nodes[pidIndex].PPID
 
 		// Get the process owner
-		processOwner = processes[pidIndex].Username
-		compositeKey := processes[pidIndex].Signature
+		processOwner = processTree.Nodes[pidIndex].Username
+		compositeKey := processTree.Nodes[pidIndex].Signature
 
 		// Initialize map for this parent if needed
-		if _, exists := processGroups[parentPID]; !exists {
-			processGroups[parentPID] = make(map[string]map[string]ProcessGroup)
+		if _, exists := processTree.ProcessGroups[parentPID]; !exists {
+			processTree.ProcessGroups[parentPID] = make(map[string]map[string]ProcessGroup)
 		}
 
-		if _, exists = processGroups[parentPID][compositeKey]; !exists {
-			processGroups[parentPID][compositeKey] = make(map[string]ProcessGroup)
+		if _, exists = processTree.ProcessGroups[parentPID][compositeKey]; !exists {
+			processTree.ProcessGroups[parentPID][compositeKey] = make(map[string]ProcessGroup)
 		}
 
 		// Use the composite key for grouping
 		// This ensures that processes are only grouped if both signature matches exactly
-		group, exists = processGroups[parentPID][compositeKey][processOwner]
+		group, exists = processTree.ProcessGroups[parentPID][compositeKey][processOwner]
 		if !exists {
 			// Create a new group
 			group = ProcessGroup{
@@ -87,18 +87,27 @@ func InitCompactMode(processes []*Process, displayOptions *DisplayOptions) {
 				Indices:    []int{pidIndex},
 				Owner:      processOwner,
 			}
+			if processTree.DisplayOptions.ShowCpuPercent {
+				group.CPUPercent = processTree.Nodes[pidIndex].CPUPercent
+			}
+			if processTree.DisplayOptions.ShowMemoryUsage {
+				group.MemoryUsage = processTree.Nodes[pidIndex].MemoryInfo.RSS
+			}
+			if processTree.DisplayOptions.ShowNumThreads {
+				group.NumThreads = processTree.Nodes[pidIndex].NumThreads
+			}
 		} else {
 			// Add to existing group
 			group.Count++
 			group.Indices = append(group.Indices, pidIndex)
-			if displayOptions.ShowCpuPercent {
-				group.CPUPercent += processes[pidIndex].CPUPercent
+			if processTree.DisplayOptions.ShowCpuPercent {
+				group.CPUPercent += processTree.Nodes[pidIndex].CPUPercent
 			}
-			if displayOptions.ShowMemoryUsage {
-				group.MemoryUsage += processes[pidIndex].MemoryInfo.RSS
+			if processTree.DisplayOptions.ShowMemoryUsage {
+				group.MemoryUsage += processTree.Nodes[pidIndex].MemoryInfo.RSS
 			}
-			if displayOptions.ShowNumThreads {
-				group.ThreadCount += processes[pidIndex].NumThreads
+			if processTree.DisplayOptions.ShowNumThreads {
+				group.NumThreads += processTree.Nodes[pidIndex].NumThreads
 			}
 
 			// Mark this process to be skipped during printing
@@ -106,7 +115,7 @@ func InitCompactMode(processes []*Process, displayOptions *DisplayOptions) {
 		}
 
 		// Update the group in the map
-		processGroups[parentPID][compositeKey][processOwner] = group
+		processTree.ProcessGroups[parentPID][compositeKey][processOwner] = group
 	}
 }
 
@@ -146,7 +155,7 @@ func ShouldSkipProcess(processIndex int) bool {
 // Returns:
 //   - count: Number of identical processes in the group
 //   - isThread: Whether the process group represents threads
-func GetProcessCount(processes []*Process, pidIndex int) (int, []int32) {
+func (processTree *ProcessTree) GetProcessCount(pidIndex int) (int, []int32, float64, uint64, int32) {
 	var (
 		groupPIDs    []int32
 		compositeKey string
@@ -155,24 +164,24 @@ func GetProcessCount(processes []*Process, pidIndex int) (int, []int32) {
 	)
 
 	// Get parent PID and command
-	parentPID = processes[pidIndex].PPID
-	processOwner = processes[pidIndex].Username
-	compositeKey = processes[pidIndex].Signature
+	parentPID = processTree.Nodes[pidIndex].PPID
+	processOwner = processTree.Nodes[pidIndex].Username
+	compositeKey = processTree.Nodes[pidIndex].Signature
 
 	// Check if we have a group for this process
-	if groups, exists := processGroups[parentPID]; exists {
+	if groups, exists := processTree.ProcessGroups[parentPID]; exists {
 		// Look up by owner and composite key (command + args)
 		if group, exists := groups[compositeKey][processOwner]; exists && group.FirstIndex == pidIndex {
 			// Find PIDs for each member of the group
 			for i := range group.Indices {
-				groupPIDs = append(groupPIDs, processes[group.Indices[i]].PID)
+				groupPIDs = append(groupPIDs, processTree.Nodes[group.Indices[i]].PID)
 			}
-			return group.Count, groupPIDs
+			return group.Count, groupPIDs, group.CPUPercent, group.MemoryUsage, group.NumThreads
 		}
 	}
 
 	// No group or not the first process in the group
-	return 1, []int32{}
+	return 1, []int32{}, 0.0, 0, 0
 }
 
 //------------------------------------------------------------------------------
