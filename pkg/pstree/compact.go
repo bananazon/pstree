@@ -40,8 +40,8 @@ var skipProcesses map[int]bool
 //   - processGroups: Map to store process groups
 func (processTree *ProcessTree) InitCompactMode() {
 	var (
-		// args         []string
 		cmd          string
+		compositeKey string
 		exists       bool
 		group        ProcessGroup
 		parentPID    int32
@@ -64,10 +64,10 @@ func (processTree *ProcessTree) InitCompactMode() {
 
 		// Get the process owner
 		processOwner = processTree.Nodes[pidIndex].Username
-		compositeKey := processTree.Nodes[pidIndex].Signature
+		compositeKey = processTree.Nodes[pidIndex].Signature
 
 		// Initialize map for this parent if needed
-		if _, exists := processTree.ProcessGroups[parentPID]; !exists {
+		if _, exists = processTree.ProcessGroups[parentPID]; !exists {
 			processTree.ProcessGroups[parentPID] = make(map[string]map[string]ProcessGroup)
 		}
 
@@ -78,6 +78,7 @@ func (processTree *ProcessTree) InitCompactMode() {
 		// Use the composite key for grouping
 		// This ensures that processes are only grouped if both signature matches exactly
 		group, exists = processTree.ProcessGroups[parentPID][compositeKey][processOwner]
+
 		if !exists {
 			// Create a new group
 			group = ProcessGroup{
@@ -87,31 +88,26 @@ func (processTree *ProcessTree) InitCompactMode() {
 				Indices:    []int{pidIndex},
 				Owner:      processOwner,
 			}
-			if processTree.DisplayOptions.ShowCpuPercent {
-				group.CPUPercent = processTree.Nodes[pidIndex].CPUPercent
-			}
-			if processTree.DisplayOptions.ShowMemoryUsage {
-				group.MemoryUsage = processTree.Nodes[pidIndex].MemoryInfo.RSS
-			}
-			if processTree.DisplayOptions.ShowNumThreads {
-				group.NumThreads = processTree.Nodes[pidIndex].NumThreads
-			}
 		} else {
 			// Add to existing group
 			group.Count++
 			group.Indices = append(group.Indices, pidIndex)
-			if processTree.DisplayOptions.ShowCpuPercent {
-				group.CPUPercent += processTree.Nodes[pidIndex].CPUPercent
-			}
-			if processTree.DisplayOptions.ShowMemoryUsage {
-				group.MemoryUsage += processTree.Nodes[pidIndex].MemoryInfo.RSS
-			}
-			if processTree.DisplayOptions.ShowNumThreads {
-				group.NumThreads += processTree.Nodes[pidIndex].NumThreads
-			}
 
 			// Mark this process to be skipped during printing
 			skipProcesses[pidIndex] = true
+		}
+
+		if processTree.DisplayOptions.ShowProcessAge {
+			group.Age = max(group.Age, processTree.Nodes[pidIndex].Age)
+		}
+		if processTree.DisplayOptions.ShowCpuPercent {
+			group.CPUPercent += processTree.Nodes[pidIndex].CPUPercent
+		}
+		if processTree.DisplayOptions.ShowMemoryUsage {
+			group.MemoryUsage += processTree.Nodes[pidIndex].MemoryInfo.RSS
+		}
+		if processTree.DisplayOptions.ShowNumThreads {
+			group.NumThreads += processTree.Nodes[pidIndex].NumThreads
 		}
 
 		// Update the group in the map
@@ -155,7 +151,11 @@ func ShouldSkipProcess(processIndex int) bool {
 // Returns:
 //   - count: Number of identical processes in the group
 //   - isThread: Whether the process group represents threads
-func (processTree *ProcessTree) GetProcessCount(pidIndex int) (int, []int32, float64, uint64, int32) {
+//   - age: Oldest process age of the group
+//   - cpuPercent: Summed CPU percent of the group
+//   - memoryUsage: Summed RSS memory usage of the group
+//   - numThreads: Summed thread count of the group
+func (processTree *ProcessTree) GetProcessCount(pidIndex int) (int, []int32, int64, float64, uint64, int32) {
 	var (
 		groupPIDs    []int32
 		compositeKey string
@@ -176,12 +176,12 @@ func (processTree *ProcessTree) GetProcessCount(pidIndex int) (int, []int32, flo
 			for i := range group.Indices {
 				groupPIDs = append(groupPIDs, processTree.Nodes[group.Indices[i]].PID)
 			}
-			return group.Count, groupPIDs, group.CPUPercent, group.MemoryUsage, group.NumThreads
+			return group.Count, groupPIDs, group.Age, group.CPUPercent, group.MemoryUsage, group.NumThreads
 		}
 	}
 
 	// No group or not the first process in the group
-	return 1, []int32{}, 0.0, 0, 0
+	return 1, []int32{}, 0, 0.0, 0, 0
 }
 
 //------------------------------------------------------------------------------
