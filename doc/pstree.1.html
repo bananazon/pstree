@@ -1,5 +1,5 @@
 <!-- Creator     : groff version 1.23.0 -->
-<!-- CreationDate: Wed Jan 14 09:21:57 2026 -->
+<!-- CreationDate: Thu Jan 15 14:34:27 2026 -->
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
 "http://www.w3.org/TR/html4/loose.dtd">
 <html>
@@ -194,9 +194,9 @@ results may be buried in collapsed subtrees.</p>
 <p style="margin-left:9%;"><b>&minus;c, &minus;-cpu</b></p>
 
 <p style="margin-left:18%;">Show the CPU utilization for
-each process in the list using the format (c:0.00%). This
-option implies <b>--compact-not</b>, since some of the
-results may be buried in collapsed subtrees.</p>
+each process in the list using the format (c:0.00%). In
+compacted view, this value will represent the sum of all
+process group members.</p>
 
 <p style="margin-left:9%;"><b>&minus;d,
 &minus;-debug</b></p>
@@ -234,9 +234,9 @@ level deep.</p>
 &minus;-memory</b></p>
 
 <p style="margin-left:18%;">Show the memory usage for each
-process in the list using the format (m:0.00 MiB). This
-option implies <b>--compact-not</b>, since some of the
-results may be buried in collapsed subtrees.</p>
+process in the list using the format (m:0.00 MiB). In
+compacted view, this value will represent the sum of all
+process group members.</p>
 
 <p style="margin-left:9%;"><b>&minus;o,
 &minus;-order-by</b> <i>field</i></p>
@@ -297,7 +297,9 @@ process.</p>
 &minus;-threads</b></p>
 
 <p style="margin-left:18%;">Show the number of threads for
-each process in the list using the format (t:xx).</p>
+each process in the list using the format (t:xx). In
+compacted view, this value will represent the sum of all
+process group members.</p>
 
 <p style="margin-left:9%;"><b>&minus;I,
 &minus;-uid-transitions</b></p>
