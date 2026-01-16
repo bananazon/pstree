@@ -235,6 +235,8 @@ type ProcessTree struct {
 	Nodes []*Process
 	// Map from PID to index in the Nodes array for quick lookups
 	PidToIndexMap map[int32]int
+	// Process groups for grouping identical processes
+	ProcessGroups map[int32]map[string]map[string]ProcessGroup
 	// PID of the root process for the tree
 	RootPID int32
 	// Tree characters for drawing the tree
@@ -257,12 +259,12 @@ type ProcessGroup struct {
 	Indices []int
 	// Memory usage of the group
 	MemoryUsage uint64
+	// Thread count of the group
+	NumThreads int32
 	// The process owner
 	Owner string
 	// Subtree signature for comparison
 	Signature string
-	// Thread count of the group
-	ThreadCount int32
 }
 
 //------------------------------------------------------------------------------
