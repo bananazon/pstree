@@ -8,16 +8,17 @@ import (
 
 func TestInitCompactMode(t *testing.T) {
 	// Create test processes with identical commands under the same parent
-	proc1 := &Process{PID: 1, PPID: 0, Command: "init"}
-	proc2 := &Process{PID: 100, PPID: 1, Command: "bash", Args: []string{"arg1"}}
-	proc3 := &Process{PID: 200, PPID: 1, Command: "bash", Args: []string{"arg1"}}
-	proc4 := &Process{PID: 300, PPID: 1, Command: "bash", Args: []string{"arg2"}}
-	proc5 := &Process{PID: 400, PPID: 2, Command: "bash", Args: []string{"arg1"}}
+	proc1 := Process{PID: 1, PPID: 0, Command: "init"}
+	proc2 := Process{PID: 100, PPID: 1, Command: "bash", Args: []string{"arg1"}}
+	proc3 := Process{PID: 200, PPID: 1, Command: "bash", Args: []string{"arg1"}}
+	proc4 := Process{PID: 300, PPID: 1, Command: "bash", Args: []string{"arg2"}}
+	proc5 := Process{PID: 400, PPID: 2, Command: "bash", Args: []string{"arg1"}}
 
-	processes := []*Process{proc1, proc2, proc3, proc4, proc5}
+	processes := []Process{proc1, proc2, proc3, proc4, proc5}
+	processTree := NewProcessTree(0, setupTestLogger(), processes, DisplayOptions{})
 
 	// Initialize compact mode
-	InitCompactMode(processes, &DisplayOptions{})
+	processTree.InitCompactMode()
 
 	// Verify that identical processes are grouped correctly
 	// proc2 and proc3 should be grouped (same command, same args, same parent)
@@ -40,14 +41,15 @@ func TestInitCompactMode(t *testing.T) {
 
 func TestShouldSkipProcess(t *testing.T) {
 	// Create test processes
-	proc1 := &Process{PID: 1, PPID: 0, Command: "init"}
-	proc2 := &Process{PID: 100, PPID: 1, Command: "bash"}
-	proc3 := &Process{PID: 200, PPID: 1, Command: "bash"}
+	proc1 := Process{PID: 1, PPID: 0, Command: "init"}
+	proc2 := Process{PID: 100, PPID: 1, Command: "bash"}
+	proc3 := Process{PID: 200, PPID: 1, Command: "bash"}
 
-	processes := []*Process{proc1, proc2, proc3}
+	processes := []Process{proc1, proc2, proc3}
+	processTree := NewProcessTree(0, setupTestLogger(), processes, DisplayOptions{})
 
 	// Initialize compact mode
-	InitCompactMode(processes, &DisplayOptions{})
+	processTree.InitCompactMode()
 
 	// Verify that ShouldSkipProcess returns the correct values
 	assert.False(t, ShouldSkipProcess(0))
@@ -60,37 +62,39 @@ func TestShouldSkipProcess(t *testing.T) {
 
 func TestGetProcessCount(t *testing.T) {
 	// Create test processes with identical commands
-	proc1 := &Process{PID: 1, PPID: 0, Command: "init"}
-	proc2 := &Process{PID: 100, PPID: 1, Command: "bash"}
-	proc3 := &Process{PID: 200, PPID: 1, Command: "bash"}
-	proc4 := &Process{PID: 300, PPID: 1, Command: "bash"}
+	proc1 := Process{PID: 1, PPID: 0, Command: "init"}
+	proc2 := Process{PID: 100, PPID: 1, Command: "bash"}
+	proc3 := Process{PID: 200, PPID: 1, Command: "bash"}
+	proc4 := Process{PID: 300, PPID: 1, Command: "bash"}
 
-	processes := []*Process{proc1, proc2, proc3, proc4}
+	processes := []Process{proc1, proc2, proc3, proc4}
+	processTree := NewProcessTree(0, setupTestLogger(), processes, DisplayOptions{})
 
 	// Initialize compact mode
-	InitCompactMode(processes, &DisplayOptions{})
+	processTree.InitCompactMode()
 
 	// Test GetProcessCount for the first process in a group
-	count, _ := GetProcessCount(processes, 1)
+	count, _, _, _, _ := processTree.GetProcessCount(1)
 	assert.Equal(t, 3, count) // proc2 has two duplicates (proc3 and proc4)
 	// assert.False(t, isThread) // proc2 is not a thread
 
 	// Test GetProcessCount for a process that should be skipped
-	count, _ = GetProcessCount(processes, 2)
+	count, _, _, _, _ = processTree.GetProcessCount(2)
 	assert.Equal(t, 1, count) // Not the first in group, so count is 1
 	// assert.False(t, isThread)
 
 	// Test with a process that has threads
-	proc5 := &Process{PID: 500, PPID: 1, Command: "chrome", NumThreads: 5}
-	proc6 := &Process{PID: 600, PPID: 1, Command: "chrome", NumThreads: 5}
+	proc5 := Process{PID: 500, PPID: 1, Command: "chrome", NumThreads: 5}
+	proc6 := Process{PID: 600, PPID: 1, Command: "chrome", NumThreads: 5}
 
-	processes2 := []*Process{proc1, proc5, proc6}
+	processes2 := []Process{proc1, proc5, proc6}
+	processTree2 := NewProcessTree(0, setupTestLogger(), processes2, DisplayOptions{})
 
 	// Initialize compact mode
-	InitCompactMode(processes2, &DisplayOptions{})
+	processTree2.InitCompactMode()
 
 	// Test GetProcessCount for a process with threads
-	count, _ = GetProcessCount(processes2, 1)
+	count, _, _, _, _ = processTree.GetProcessCount(1)
 	assert.Equal(t, 2, count) // proc5 has one duplicate (proc6)
 	// assert.True(t, isThread)  // proc5 is a thread
 }
