@@ -588,16 +588,7 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	}
 
 	if processTree.DisplayOptions.ShowProcessAge {
-		duration := util.FindDuration(processTree.Nodes[pidIndex].Age)
-		ageSlice := []string{}
-		ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Days))
-		ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Hours))
-		ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Minutes))
-		ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Seconds))
-		ageString = fmt.Sprintf(
-			"(%s)",
-			strings.Join(ageSlice, ":"),
-		)
+		ageString = processTree.durationFromProcessAge(processTree.Nodes[pidIndex].Age)
 		processTree.colorizeField("age", &ageString, pidIndex)
 		lineItemMap["age"] = ageString
 	}
@@ -643,7 +634,7 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 	// In compact mode, format the command with count for the first process in a group
 	if processTree.DisplayOptions.CompactMode {
 		// Get the count of identical processes
-		count, groupPIDs, cpuPercent, memoryUsage, numThreads := processTree.GetProcessCount(pidIndex)
+		count, groupPIDs, processAge, cpuPercent, memoryUsage, numThreads := processTree.GetProcessCount(pidIndex)
 
 		// If there are multiple identical processes, format with count
 		if count > 1 {
@@ -651,6 +642,12 @@ func (processTree *ProcessTree) buildLineItem(head string, pidIndex int) string 
 			compactStr = FormatCompactOutput(commandStr, count, groupPIDs, processTree.DisplayOptions.ShowPIDs)
 
 			if compactStr != "" {
+				if processTree.DisplayOptions.ShowProcessAge {
+					ageString = processTree.durationFromProcessAge(processAge)
+					processTree.colorizeField("age", &ageString, pidIndex)
+					lineItemMap["age"] = fmt.Sprintf("%s", ageString)
+				}
+
 				if processTree.DisplayOptions.ShowCpuPercent {
 					cpuPercentStr := fmt.Sprintf("(c:%.2f%%)", cpuPercent)
 					processTree.colorizeField("cpu", &cpuPercentStr, pidIndex)
@@ -1144,4 +1141,20 @@ func computeSignature(p *Process, showArguments bool) string {
 
 	p.Signature = self + "(" + strings.Join(childSigs, ",") + ")"
 	return p.Signature
+}
+
+func (processTree *ProcessTree) durationFromProcessAge(processAge int64) string {
+	duration := util.FindDuration(processAge)
+	ageSlice := []string{}
+	ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Days))
+	ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Hours))
+	ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Minutes))
+	ageSlice = append(ageSlice, fmt.Sprintf("%02d", duration.Seconds))
+	ageString := fmt.Sprintf(
+		"(%s)",
+		strings.Join(ageSlice, ":"),
+	)
+	// processTree.colorizeField("age", &ageString, pidIndex)
+
+	return ageString
 }
