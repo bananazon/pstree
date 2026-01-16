@@ -51,18 +51,18 @@ func GetPersistentFlags(cmd *cobra.Command, colorSupport bool, colorCount int, u
 	// Optional information
 	cmd.PersistentFlags().BoolVarP(&flagShowAll, "all", "A", false, "equivalent to -acDGmOpSt")
 	cmd.PersistentFlags().BoolVarP(&flagCompactNot, "compact-not", "n", false, "do not compact identical subtrees in output")
-	cmd.PersistentFlags().BoolVarP(&flagCpu, "cpu", "c", false, "show CPU utilization percentage with each process, e.g., (c:0.00%); In compacted view, this value will represent the sum of all process group members.")
-	cmd.PersistentFlags().BoolVarP(&flagMemory, "memory", "m", false, "show the memory usage with each process, e.g., (m:x.y MiB); In compacted view, this value will represent the sum of all process group members.")
+	cmd.PersistentFlags().BoolVarP(&flagCpu, "cpu", "c", false, "show CPU utilization percentage with each process, e.g., (c:0.00%); In compacted view, this value will represent the sum of all process group members")
+	cmd.PersistentFlags().BoolVarP(&flagMemory, "memory", "m", false, "show the memory usage with each process, e.g., (m:x.y MiB); In compacted view, this value will represent the sum of all process group members")
 	cmd.PersistentFlags().BoolVarP(&flagShowOwner, "show-owner", "O", false, "show the owner of the process")
 	cmd.PersistentFlags().BoolVarP(&flagShowPGIDs, "show-pgids", "g", false, "show process group IDs")
 	cmd.PersistentFlags().BoolVarP(&flagShowPIDs, "show-pids", "p", false, "show process IDs")
 	cmd.PersistentFlags().BoolVarP(&flagShowPPIDs, "show-ppids", "D", false, "show parent process IDs")
 	cmd.PersistentFlags().BoolVarP(&flagShowUIDTransitions, "uid-transitions", "I", false, "show processes where the user ID changes from the parent process, e.g., (uid→uid); cannot be used with --user-transitions")
 	cmd.PersistentFlags().BoolVarP(&flagShowUserTransitions, "user-transitions", "U", false, "show processes where the user changes from the parent process, e.g., (user→user); cannot be used with --uid-transitions")
-	cmd.PersistentFlags().BoolVarP(&flagThreads, "threads", "t", false, "show the number of threads with each process, e.g., (t:xx); In compacted view, this value will represent the sum of all process group members.")
+	cmd.PersistentFlags().BoolVarP(&flagThreads, "threads", "t", false, "show the number of threads with each process, e.g., (t:xx); In compacted view, this value will represent the sum of all process group members")
 
 	// Filtering and sorting
-	cmd.PersistentFlags().BoolVarP(&flagAge, "age", "G", false, "show the age of the process using the format (dd:hh:mm:ss)")
+	cmd.PersistentFlags().BoolVarP(&flagAge, "age", "G", false, "show the age of the process using the format (dd:hh:mm:ss); In compacted view, this value will represent the oldest process in the group")
 	cmd.PersistentFlags().BoolVarP(&flagArguments, "arguments", "a", false, "show command line arguments")
 	cmd.PersistentFlags().BoolVarP(&flagExcludeRoot, "exclude-root", "X", false, "don't show branches containing only root processes; cannot be used with --user")
 	cmd.PersistentFlags().Int32VarP(&flagPid, "pid", "P", 0, "show only branches containing process <pid>")
