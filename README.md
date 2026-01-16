@@ -70,7 +70,7 @@ It uses [gopsutil](https://github.com/shirou/gopsutil) for gathering process inf
 ## Usage
 ```
 $ pstree --help
-pstree $Revision: 0.9.5 $ by Cursed Bananazon (C) 2025, 2026
+pstree $Revision: 0.9.6 $ by Cursed Bananazon (C) 2025, 2026
 
 Usage: pstree [OPTIONS]
 

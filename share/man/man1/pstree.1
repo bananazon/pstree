@@ -1,6 +1,6 @@
 .\" -*- coding: utf-8 -*-
 .ad b
-.TH PSTREE 1 "January 15, 2026" "0.9.5" "User Commands"
+.TH PSTREE 1 "January 16, 2026" "0.9.6" "User Commands"
 .SH NAME
 pstree \- display a tree of processes
 .SH SYNOPSIS
@@ -42,7 +42,7 @@ shows running processes as a tree. The tree is rooted at launchd. If \fB--pid\fR
 .SH OPTIONS
 .TP
 .B \-G, \--age
-Show the age of each process in the list using the format (dd:hh:mm:ss).
+Show the age of each process in the list using the format (dd:hh:mm:ss); In compacted view, this value will represent the oldest process in the group.
 .TP
 .B \-A, \--all
 Equivalent to -acDGmOpSt.

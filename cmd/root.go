@@ -62,7 +62,7 @@ var (
 	validAttributes         []string = []string{"age", "cpu", "mem"}
 	validColorSchemes       []string = []string{"darwin", "linux", "powershell", "windows10", "xterm"}
 	validOrderBy            []string = []string{"age", "cpu", "mem", "pid", "threads", "user"}
-	version                 string   = "0.9.5"
+	version                 string   = "0.9.6"
 	versionString           string
 	rootCmd                 = &cobra.Command{
 		Use:    "pstree",
