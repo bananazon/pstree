@@ -219,10 +219,10 @@ type DisplayOptions struct {
 type ProcessTree struct {
 	// Current depth in the tree during traversal
 	AtDepth int
-	// Colorizer for applying colors to text
-	Colorizer Colorizer
 	// Color scheme for applying colors to text
 	ColorScheme ColorScheme
+	// Colorizer for applying colors to text
+	Colorizer Colorizer
 	// Enable debugging
 	DebugLevel int
 	// Display options controlling how the tree is rendered
@@ -247,9 +247,11 @@ type ProcessTree struct {
 // GROUP OF IDENTICAL PROCESSES
 // ------------------------------------------------------------------------------
 type ProcessGroup struct {
+	// Oldest process age of the group
+	Age int64
 	// Number of identical processes
 	Count int
-	// CPU usage of the group
+	// Summed CPU percent of the group
 	CPUPercent float64
 	// Index of the first process in the group
 	FirstIndex int
@@ -257,14 +259,12 @@ type ProcessGroup struct {
 	FullPath string
 	// Indices of all processes in the group
 	Indices []int
-	// Memory usage of the group
+	// Summed RSS memory usage of the group
 	MemoryUsage uint64
-	// Thread count of the group
+	// Summed thread count of the group
 	NumThreads int32
 	// The process owner
 	Owner string
-	// Subtree signature for comparison
-	Signature string
 }
 
 //------------------------------------------------------------------------------
